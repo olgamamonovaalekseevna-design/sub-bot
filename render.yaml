@@ -1,5 +1,5 @@
 services:
-  - type: web # или pserv / worker в зависимости от вашего типа
+  - type: web
     name: sub-bot
     env: python
     region: frankfurt
