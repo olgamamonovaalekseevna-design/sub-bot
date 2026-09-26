@@ -1,26 +1,24 @@
 import os
 import logging
+import asyncio
 import random
-from aiohttp import web
+from flask import Flask, request
 
 from aiogram import Bot, Dispatcher, F, types
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.storage.memory import MemoryStorage
-from aiogram.webhook.aiohttp_handler import SimpleRequestHandler, setup_application
 
 # ==================== НАСТРОЙКИ БОТА ====================
 TOKEN = os.environ.get("BOT_TOKEN", "8916692361:AAGu2uVFdULLy0tiXlpj5uAuWCRWxaw0sI4")
 ADMIN_ID = int(os.environ.get("ADMIN_ID", 1989967878))
-WEBHOOK_HOST = os.environ.get("WEBHOOK_HOST", "https://sub-bot-yrhp.onrender.com")
-WEBHOOK_PATH = "/webhook"
-WEBHOOK_URL = f"{WEBHOOK_HOST}{WEBHOOK_PATH}"
-
-logging.basicConfig(level=logging.INFO)
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
+app = Flask(__name__)
+
+logging.basicConfig(level=logging.INFO)
 
 # ==================== РЕКВИЗИТЫ СБП ====================
 PAYMENT_INFO = {
@@ -86,12 +84,9 @@ PRODUCTS = {
 ORDERS = {}
 
 class AdminStates(StatesGroup):
-    edit_sbp_phone = State()
-    edit_sbp_bank = State()
-    edit_sbp_name = State()
     waiting_for_key = State()
 
-# ==================== ХЕНДЛЕРЫ И МЕНЮ ====================
+# ==================== ХЕНДЛЕРЫ ====================
 @dp.message(F.text == "/id")
 async def cmd_id(message: Message):
     await message.answer(f"🆔 Ваш Telegram ID: `{message.from_user.id}`", parse_mode="Markdown")
@@ -336,7 +331,6 @@ async def admin_panel_main(callback: CallbackQuery):
 
     await callback.answer()
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="💳 Изменить реквизиты СБП", callback_data="adm_edit_sbp")],
         [InlineKeyboardButton(text="🔙 В главное меню", callback_data="main_menu")]
     ])
     
@@ -345,25 +339,27 @@ async def admin_panel_main(callback: CallbackQuery):
     except Exception:
         pass
 
-    await callback.message.answer("⚙️ **ПАНЕЛЬ УПРАВЛЕНИЯ МАГАЗИНОМ**", reply_markup=kb, parse_mode="Markdown")
+    await callback.message.answer("⚙️ **ПАНЕЛЬ УПРАВЛЕНИЯ МАГАЗИНОМ**", reply_markdown=kb, parse_mode="Markdown")
 
-# ==================== ЗАПУСК WEBHOOK СЕРВЕРА AIOHTTP ====================
-async def on_startup(bot: Bot) -> None:
-    await bot.set_webhook(WEBHOOK_URL)
+# ==================== FLASK РОУТЫ ====================
+@app.route("/webhook", methods=["POST"])
+def webhook():
+    if request.headers.get("content-type") == "application/json":
+        json_data = request.get_json()
+        update = types.Update.model_validate(json_data, context={"bot": bot})
+        
+        async def handle():
+            async with bot:
+                await dp.feed_update(bot=bot, update=update)
 
-def main():
-    dp.startup.register(on_startup)
-    app = web.Application()
-    
-    webhook_requests_handler = SimpleRequestHandler(
-        dispatcher=dp,
-        bot=bot,
-    )
-    webhook_requests_handler.register(app, path=WEBHOOK_PATH)
-    setup_application(app, dp, bot=bot)
-    
-    port = int(os.environ.get("PORT", 10000))
-    web.run_app(app, host="0.0.0.0", port=port)
+        asyncio.run(handle())
+        return "OK", 200
+    return "Forbidden", 403
+
+@app.route('/')
+def index():
+    return "Bot Service Online"
 
 if __name__ == "__main__":
-    main()
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
