@@ -5,8 +5,7 @@ from aiogram import Bot, Dispatcher, types
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
-import threading
-from flask import Flask
+from flask import Flask, request
 
 # --- ВАШИ ДАННЫЕ УЖЕ ВСТАВЛЕНЫ ---
 TOKEN = "8916692361:AAGu2uVFdULLy0tiX1pj5uAuWCRWxaw0sI4"
@@ -193,16 +192,22 @@ async def send_key_to_user(message: Message, state: FSMContext):
         
     await state.clear()
 
+# --- ВЕБХУК ДЛЯ RENDER ---
+
+@app.route(f"/{TOKEN}", methods=["POST"])
+def webhook():
+    if request.headers.get("content-type") == "application/json":
+        json_data = request.get_json()
+        update = types.Update.model_validate(json_data, context={"bot": bot})
+        asyncio.run(dp.feed_update(bot=bot, update=update))
+        return "OK", 200
+    else:
+        return "Invalid content type", 403
+
 @app.route('/')
 def index():
     return "Bot is running!"
 
-def run_flask():
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8080)))
-
-async def main():
-    threading.Thread(target=run_flask).start()
-    await dp.start_polling(bot)
-
 if __name__ == "__main__":
-    asyncio.run(main())
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
