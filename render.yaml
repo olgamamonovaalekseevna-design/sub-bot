@@ -1,11 +1,11 @@
 services:
-  - type: web
+  - type: web # или pserv / worker в зависимости от вашего типа
     name: sub-bot
     env: python
-    buildCommand: "pip install --upgrade pip setuptools wheel && pip install -r requirements.txt"
-    startCommand: "python main.py"
+    region: frankfurt
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python main.py
     envVars:
-      - key: CARGO_HOME
-        value: /opt/render/project/src/.cargo
-      - key: RUSTUP_HOME
-        value: /opt/render/project/src/.rustup
+      - key: PYTHON_VERSION
+        value: 3.11.9
