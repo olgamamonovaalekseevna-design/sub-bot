@@ -7,7 +7,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from flask import Flask, request
 
-# --- ВАШИ ДАННЫЕ (ВСТРОЕНЫ НАПРЯМУЮ) ---
+# --- ВАШИ ДАННЫЕ ---
 TOKEN = "8916692361:AAGu2uVFdULLy0tiX1pj5uAuWCRWxaw0sI4"
 ADMIN_ID = 1989967878
 
@@ -192,15 +192,13 @@ async def send_key_to_user(message: Message, state: FSMContext):
         
     await state.clear()
 
-# --- ТОЧНЫЙ РОУТ ВЕБХУКА ДЛЯ FLASK ---
+# --- УНИВЕРСАЛЬНЫЙ РОУТ ВЕБХУКА ---
 
-@app.route(f"/{TOKEN}", methods=["POST"])
+@app.route("/webhook", methods=["POST"])
 def webhook():
     if request.headers.get("content-type") == "application/json":
         json_data = request.get_json()
         update = types.Update.model_validate(json_data, context={"bot": bot})
-        
-        # Запуск асинхронной обработки события
         asyncio.run(dp.feed_update(bot=bot, update=update))
         return "OK", 200
     else:
@@ -210,6 +208,9 @@ def webhook():
 def index():
     return "Bot is running!"
 
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
